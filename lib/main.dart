@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
+import 'pokemon_api.dart'; // Import the API file
 
 void main() {
   runApp(MyApp());
@@ -30,7 +31,9 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   double _confidence = 0.0;
   List<String> class_names = [];
   bool _isClassifying = false;
-  String _predictedName = ""; // Store the predicted name
+  String _predictedName = "";
+  String? _pokemonDescription = "";
+  bool _isLoadingPokemonData = false;
 
   @override
   void initState() {
@@ -41,12 +44,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   Future<void> loadClassNames() async {
     try {
       String data = await rootBundle.loadString('assets/ml/labels.txt');
-      class_names = data.split('\n').map((line) => line.trim()).toList(); // Trim whitespace
-      class_names.removeWhere((item) => item.isEmpty); // Remove empty lines
-      print("Loaded class names: $class_names"); // Print for debugging
+      class_names = data.split('\n').map((line) => line.trim()).toList();
+      class_names.removeWhere((item) => item.isEmpty);
     } catch (e) {
       print("Error loading class names: $e");
-      // Handle the error appropriately, e.g., display an error message to the user
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading labels.txt")),
       );
@@ -59,12 +60,13 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
       _image = pickedFile != null ? File(pickedFile.path) : null;
       _output = null;
       _confidence = 0.0;
-      _predictedName = ""; // Clear previous prediction
+      _predictedName = "";
+      _pokemonDescription = ""; // Clear description
     });
   }
 
   Future classifyImage() async {
-    if (_image == null || class_names.isEmpty) { // Check if labels are loaded
+    if (_image == null || class_names.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select an image and ensure labels are loaded.')),
       );
@@ -73,6 +75,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
     setState(() {
       _isClassifying = true;
+      _pokemonDescription = "Loading description..."; // Show loading message
     });
 
     try {
@@ -109,10 +112,11 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
         _output = List<double>.from(output[0]);
         int maxIndex = _output!.indexOf(_output!.reduce((curr, next) => curr > next ? curr : next));
         _confidence = _output![maxIndex];
-        _predictedName = class_names[maxIndex]; // Get the name!
+        _predictedName = class_names[maxIndex].toLowerCase();
       });
 
-      interpreter.close();
+      _pokemonDescription = await PokemonApi.getPokemonDescription(_predictedName);
+
     } catch (e) {
       print('Error during classification: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,10 +158,23 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
               _isClassifying
                   ? CircularProgressIndicator()
                   : _output != null
-                  ? Text(
-                'Prediction: $_predictedName (Confidence: ${(_confidence * 100).toStringAsFixed(2)}%)',
-                style: TextStyle(fontSize: 18),
-                textAlign: TextAlign.center,
+                  ? Column(
+                children: [
+                  Text(
+                    'Prediction: $_predictedName (Confidence: ${(_confidence * 100).toStringAsFixed(2)}%)',
+                    style: TextStyle(fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      _pokemonDescription ?? "No description available.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
               )
                   : SizedBox.shrink(),
             ],
