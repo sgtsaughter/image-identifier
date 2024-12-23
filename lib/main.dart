@@ -5,7 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
-import 'pokemon_api.dart'; // Import the API file
+import 'pokemon_api.dart';
+import 'package:flutter_tts/flutter_tts.dart'; // Import flutter_tts
 
 void main() {
   runApp(MyApp());
@@ -32,13 +33,25 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   List<String> class_names = [];
   bool _isClassifying = false;
   String _predictedName = "";
-  String? _pokemonDescription = "";
+  String _pokemonDescription = "";
   bool _isLoadingPokemonData = false;
+  FlutterTts flutterTts = FlutterTts(); // Initialize TTS
 
   @override
   void initState() {
     super.initState();
+    initTts();
     loadClassNames();
+  }
+
+  initTts() async {
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setPitch(1.0); // Adjust pitch as needed
+    await flutterTts.setSpeechRate(0.5); // Adjust speech rate as needed
+  }
+
+  Future _speak(String text) async {
+    await flutterTts.speak(text);
   }
 
   Future<void> loadClassNames() async {
@@ -46,6 +59,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
       String data = await rootBundle.loadString('assets/ml/labels.txt');
       class_names = data.split('\n').map((line) => line.trim()).toList();
       class_names.removeWhere((item) => item.isEmpty);
+      print("Loaded class names: $class_names");
     } catch (e) {
       print("Error loading class names: $e");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,7 +75,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
       _output = null;
       _confidence = 0.0;
       _predictedName = "";
-      _pokemonDescription = ""; // Clear description
+      _pokemonDescription = "";
     });
   }
 
@@ -75,7 +89,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
     setState(() {
       _isClassifying = true;
-      _pokemonDescription = "Loading description..."; // Show loading message
+      _pokemonDescription = "Loading description...";
     });
 
     try {
@@ -115,7 +129,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
         _predictedName = class_names[maxIndex].toLowerCase();
       });
 
-      _pokemonDescription = await PokemonApi.getPokemonDescription(_predictedName);
+      _pokemonDescription = (await PokemonApi.getPokemonDescription(_predictedName))!;
+      _speak(_pokemonDescription); // Speak the description!
 
     } catch (e) {
       print('Error during classification: $e');
@@ -169,7 +184,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Text(
-                      _pokemonDescription ?? "No description available.",
+                      _pokemonDescription,
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 16),
                     ),
