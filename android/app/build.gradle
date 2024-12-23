@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0") // Added TensorFlow Lite GPU delegate dependency
+    // ... other dependencies
+}

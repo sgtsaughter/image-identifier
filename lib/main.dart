@@ -6,7 +6,8 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
 import 'pokemon_api.dart';
-import 'package:flutter_tts/flutter_tts.dart'; // Import flutter_tts
+import 'package:flutter_tts/flutter_tts.dart';
+import 'string_extensions.dart';
 
 void main() {
   runApp(MyApp());
@@ -35,7 +36,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   String _predictedName = "";
   String _pokemonDescription = "";
   bool _isLoadingPokemonData = false;
-  FlutterTts flutterTts = FlutterTts(); // Initialize TTS
+  FlutterTts flutterTts = FlutterTts();
 
   @override
   void initState() {
@@ -131,8 +132,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
       });
 
       _pokemonDescription = (await PokemonApi.getPokemonDescription(_predictedName))!;
-      _speak(_pokemonDescription); // Speak the description!
-
+      setState(() {
+        _pokemonDescription = "${_predictedName.toCapitalize()}, $_pokemonDescription"; // Prepend name
+      });
+      _speak(_pokemonDescription);
     } catch (e) {
       print('Error during classification: $e');
       ScaffoldMessenger.of(context).showSnackBar(
