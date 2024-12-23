@@ -46,7 +46,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
   initTts() async {
     await flutterTts.setLanguage("en-US");
-    await flutterTts.setPitch(1.0); // Adjust pitch as needed
+    await flutterTts.setVolume(1.0);
+    await flutterTts.setPitch(.5); // Adjust pitch as needed
     await flutterTts.setSpeechRate(0.5); // Adjust speech rate as needed
   }
 
