@@ -38,7 +38,9 @@ dependencies:
   image_picker: ^1.1.2
   google_mlkit_image_labeling: ^0.13.0
   path_provider: ^2.1.5
-
+  path: ^1.9.0
+  tflite_flutter: ^0.11.0
+  image: ^4.5.2
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +67,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
      - assets/ml/
+     - assets/ml/labels.txt
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
