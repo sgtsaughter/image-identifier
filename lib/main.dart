@@ -48,8 +48,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   initTts() async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setVolume(1.0);
-    await flutterTts.setPitch(.5); // Adjust pitch as needed
-    await flutterTts.setSpeechRate(0.5); // Adjust speech rate as needed
+    await flutterTts.setPitch(.5);
+    await flutterTts.setSpeechRate(0.5);
   }
 
   Future _speak(String text) async {
@@ -72,6 +72,17 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
   Future pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    setState(() {
+      _image = pickedFile != null ? File(pickedFile.path) : null;
+      _output = null;
+      _confidence = 0.0;
+      _predictedName = "";
+      _pokemonDescription = "";
+    });
+  }
+
+  Future pickImageFromCamera() async {
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
     setState(() {
       _image = pickedFile != null ? File(pickedFile.path) : null;
       _output = null;
@@ -133,9 +144,14 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
       _pokemonDescription = (await PokemonApi.getPokemonDescription(_predictedName))!;
       setState(() {
-        _pokemonDescription = "${_predictedName.toCapitalize()}, $_pokemonDescription"; // Prepend name
+        _pokemonDescription = "${_predictedName.toCapitalize()}, $_pokemonDescription";
+        _isClassifying = false;
       });
-      _speak(_pokemonDescription);
+
+      await flutterTts.speak(_predictedName.toCapitalize());
+      await flutterTts.awaitSpeakCompletion(true);
+      await Future.delayed(Duration(milliseconds: 1000));
+      await flutterTts.speak(_pokemonDescription.substring(_predictedName.length + 2));
     } catch (e) {
       print('Error during classification: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,9 +180,18 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                   ? Image.file(_image!, height: 200)
                   : Text('No image selected'),
               SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: pickImage,
-                child: Text('Select Image'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: pickImage,
+                    child: Text('Select from Gallery'),
+                  ),
+                  ElevatedButton(
+                    onPressed: pickImageFromCamera,
+                    child: Text('Take a Picture'),
+                  ),
+                ],
               ),
               SizedBox(height: 20),
               ElevatedButton(
@@ -180,7 +205,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                   ? Column(
                 children: [
                   Text(
-                    'Prediction: $_predictedName (Confidence: ${(_confidence * 100).toStringAsFixed(2)}%)',
+                    'Prediction: ${_predictedName.toCapitalize()} (Confidence: ${(_confidence * 100).toStringAsFixed(2)}%)',
                     style: TextStyle(fontSize: 18),
                     textAlign: TextAlign.center,
                   ),
