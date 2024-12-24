@@ -35,7 +35,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   bool _isClassifying = false;
   String _predictedName = "";
   String _pokemonDescription = "";
-  bool _isLoadingPokemonData = false;
   FlutterTts flutterTts = FlutterTts();
 
   @override
@@ -72,27 +71,25 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
   Future pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    setState(() {
-      _image = pickedFile != null ? File(pickedFile.path) : null;
-      _output = null;
-      _confidence = 0.0;
-      _predictedName = "";
-      _pokemonDescription = "";
-    });
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+      });
+      _classifyImage();
+    }
   }
 
   Future pickImageFromCamera() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-    setState(() {
-      _image = pickedFile != null ? File(pickedFile.path) : null;
-      _output = null;
-      _confidence = 0.0;
-      _predictedName = "";
-      _pokemonDescription = "";
-    });
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+      });
+      _classifyImage();
+    }
   }
 
-  Future classifyImage() async {
+  Future _classifyImage() async {
     if (_image == null || class_names.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select an image and ensure labels are loaded.')),
@@ -192,11 +189,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                     child: Text('Take a Picture'),
                   ),
                 ],
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: classifyImage,
-                child: Text('Classify'),
               ),
               SizedBox(height: 20),
               _isClassifying
