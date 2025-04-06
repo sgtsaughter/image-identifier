@@ -167,18 +167,15 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
     return Scaffold(
       backgroundColor: Color(0xFFDB2E37),
       appBar: AppBar(
-        toolbarHeight: 100,
+        toolbarHeight: 140,
         backgroundColor: Color(0xFFDB2E37),
         title: null, // Remove the title
-        flexibleSpace: Stack(
-          children: [
-            Positioned.fill(
-              child: SvgPicture.asset(
-                "assets/pokedex-header.svg",
-                fit: BoxFit.cover,
-              ),
-            ),
-          ],
+        flexibleSpace: SafeArea(
+          child: SvgPicture.asset(
+            "assets/pokedex-header.svg",
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
         ),
       ),
       body: Center(
@@ -190,7 +187,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
               _image != null
                   ? Image.file(_image!, height: 200)
                   : Text('No image selected'),
-              SizedBox(height: 20),
               SizedBox(height: 20),
               _isClassifying
                   ? CircularProgressIndicator()
