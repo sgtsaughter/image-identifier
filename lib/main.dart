@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'pokemon_api.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'string_extensions.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   runApp(MyApp());
@@ -165,7 +166,21 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pokemon Image Classifier'),
+        toolbarHeight: 120,
+        title: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              // height: 850.0, // Increase this value to make the SVG taller
+              child: SvgPicture.asset(
+                "assets/pokedex-header.svg",
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+        ),
+        // You might not need flexibleSpace anymore
+        // flexibleSpace: ... (remove this)
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -173,23 +188,11 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+
               _image != null
                   ? Image.file(_image!, height: 200)
                   : Text('No image selected'),
               SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: pickImage,
-                    child: Text('Select from Gallery'),
-                  ),
-                  ElevatedButton(
-                    onPressed: pickImageFromCamera,
-                    child: Text('Take a Picture'),
-                  ),
-                ],
-              ),
               SizedBox(height: 20),
               _isClassifying
                   ? CircularProgressIndicator()
@@ -217,6 +220,18 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+          iconSize: 40,
+          items: [
+        BottomNavigationBarItem(
+          icon: IconButton(onPressed: pickImage, icon: Icon(Icons.insert_photo)),
+          label: "Select From Gallery",
+        ),
+        BottomNavigationBarItem(
+            icon: IconButton(onPressed: pickImageFromCamera, icon: Icon(Icons.camera)),
+            label: "Take a Picture"
+        ),
+      ]),
     );
   }
 }

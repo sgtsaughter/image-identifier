@@ -2,6 +2,13 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+//TODO: Make header that looks like top of pokedex (big blue dot and red, yellow, green circles)
+// Add border around pokemon image
+// Below the image have a Gallery and Camera icon instead of buttons
+// Maybe have the big button in the header light up while the tts is happening.
+// Maybe have it blink as it's talking (need to see what data comes back from the tts library)
+// Maybe have a second page that will save past scanned in pokemon.
+
 class PokemonApi {
   static Future<String?> getPokemonDescription(String pokemonName) async {
     final url = Uri.parse('https://pokeapi.co/api/v2/pokemon-species/$pokemonName/');
