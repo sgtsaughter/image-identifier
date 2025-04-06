@@ -165,13 +165,14 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFDB2E37),
       appBar: AppBar(
-        toolbarHeight: 120,
-        title: Stack(
+        toolbarHeight: 100,
+        backgroundColor: Color(0xFFDB2E37),
+        title: null, // Remove the title
+        flexibleSpace: Stack(
           children: [
-            Container(
-              width: double.infinity,
-              // height: 850.0, // Increase this value to make the SVG taller
+            Positioned.fill(
               child: SvgPicture.asset(
                 "assets/pokedex-header.svg",
                 fit: BoxFit.cover,
@@ -179,8 +180,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
             ),
           ],
         ),
-        // You might not need flexibleSpace anymore
-        // flexibleSpace: ... (remove this)
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -188,7 +187,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
               _image != null
                   ? Image.file(_image!, height: 200)
                   : Text('No image selected'),
