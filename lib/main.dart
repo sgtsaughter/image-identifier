@@ -164,6 +164,14 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Define the same cut properties used in the PokedexBorderPainter
+    // These need to be consistent for the clipper to match the border.
+    const double cutBottomHorizontalOffset = 30.0;
+    const double cutLeftVerticalOffset = 30.0;
+    // This innerOffset should match the one used for the white background in PokedexBorderPainter
+    const double borderInnerOffset = 8.0;
+
+
     return Scaffold(
       backgroundColor: Color(0xFFDB2E37),
       appBar: AppBar(
@@ -185,7 +193,30 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _image != null
-                  ? Image.file(_image!, height: 200)
+                  ? SizedBox(
+                width: 220, // Image width + desired border space
+                height: 220, // Image height + desired border space
+                child: CustomPaint(
+                  painter: PokedexBorderPainter(borderColor: Colors.black),
+                  child: Padding(
+                    // The padding here defines the space from the border to the clipped image.
+                    // It should match or be slightly larger than the borderInnerOffset
+                    padding: EdgeInsets.all(borderInnerOffset),
+                    child: ClipPath(
+                      clipper: PokedexImageClipper(
+                        cutBottomHorizontalOffset: cutBottomHorizontalOffset,
+                        cutLeftVerticalOffset: cutLeftVerticalOffset,
+                      ),
+                      child: Image.file(
+                        _image!,
+                        height: 200 - (borderInnerOffset * 2), // Adjust image height based on padding
+                        width: 200 - (borderInnerOffset * 2),  // Adjust image width based on padding
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              )
                   : Text('No image selected'),
               SizedBox(height: 20),
               _isClassifying
@@ -195,7 +226,11 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                 children: [
                   Text(
                     'Prediction: ${_predictedName.toCapitalize()} (Confidence: ${(_confidence * 100).toStringAsFixed(2)}%)',
-                    style: TextStyle(fontSize: 18),
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Open Sans, Lato',
+                        color: Colors.yellowAccent),
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 10),
@@ -204,7 +239,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                     child: Text(
                       _pokemonDescription,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 16, fontFamily: 'Open Sans, Lato', color: Colors.white),
                     ),
                   ),
                 ],
@@ -214,18 +249,109 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-          iconSize: 40,
-          items: [
+      bottomNavigationBar: BottomNavigationBar(iconSize: 40, items: [
         BottomNavigationBarItem(
           icon: IconButton(onPressed: pickImage, icon: Icon(Icons.insert_photo)),
           label: "Select From Gallery",
         ),
         BottomNavigationBarItem(
             icon: IconButton(onPressed: pickImageFromCamera, icon: Icon(Icons.camera)),
-            label: "Take a Picture"
-        ),
+            label: "Take a Picture"),
       ]),
     );
+  }
+}
+
+// Custom Painter Class for the Pokedex Border
+class PokedexBorderPainter extends CustomPainter {
+  final Color borderColor;
+
+  PokedexBorderPainter({required this.borderColor});
+
+  // Define constants for the angled cut
+  // These must match the values used in PokedexImageClipper
+  static const double cutBottomHorizontalOffset = 30.0;
+  static const double cutLeftVerticalOffset = 30.0;
+  static const double innerOffset = 8.0; // Padding between black border and white fill
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw the black border
+    final paint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8.0; // Border thickness
+
+    final path = Path();
+    path.moveTo(0, 0); // Top-left
+    path.lineTo(size.width, 0); // Top-right
+    path.lineTo(size.width, size.height); // Bottom-right
+    path.lineTo(cutBottomHorizontalOffset, size.height); // Bottom edge before the cut
+    path.lineTo(0, size.height - cutLeftVerticalOffset); // Left edge before the cut
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Draw the inner white background
+    final innerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final innerPath = Path();
+    innerPath.moveTo(innerOffset, innerOffset); // Top-left of inner white area
+    innerPath.lineTo(size.width - innerOffset, innerOffset); // Top-right of inner white area
+    innerPath.lineTo(size.width - innerOffset, size.height - innerOffset); // Bottom-right of inner white area
+
+    // Calculate the points for the inner angled cut, based on the outer cut and innerOffset
+    final double innerCutBottomX = cutBottomHorizontalOffset + innerOffset;
+    final double innerCutLeftY = size.height - cutLeftVerticalOffset - innerOffset;
+
+    innerPath.lineTo(innerCutBottomX, size.height - innerOffset); // Inner bottom edge before the cut
+    innerPath.lineTo(innerOffset, innerCutLeftY); // Inner left edge before the cut
+    innerPath.close();
+
+    canvas.drawPath(innerPath, innerPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false; // The border is static
+  }
+}
+
+// New Custom Clipper Class for the Image
+class PokedexImageClipper extends CustomClipper<Path> {
+  final double cutBottomHorizontalOffset;
+  final double cutLeftVerticalOffset;
+
+  PokedexImageClipper({
+    required this.cutBottomHorizontalOffset,
+    required this.cutLeftVerticalOffset,
+  });
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(0, 0); // Top-left
+    path.lineTo(size.width, 0); // Top-right
+    path.lineTo(size.width, size.height); // Bottom-right
+
+    // These points must match the logic for the *inner* path in PokedexBorderPainter
+    // but without any additional `innerOffset` because this path defines the
+    // boundary for the image *within* its padded area.
+    path.lineTo(cutBottomHorizontalOffset, size.height); // Bottom edge before the cut
+    path.lineTo(0, size.height - cutLeftVerticalOffset); // Left edge before the cut
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
+    // Only re-clip if the cut properties change
+    if (oldClipper is PokedexImageClipper) {
+      return oldClipper.cutBottomHorizontalOffset != cutBottomHorizontalOffset ||
+          oldClipper.cutLeftVerticalOffset != cutLeftVerticalOffset;
+    }
+    return false;
   }
 }
