@@ -169,13 +169,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
     const double cutLeftVerticalOffset = 30.0;
 
     // Define the thickness of the outer white border
-    const double outerWhiteBorderThickness = 18.0; // Made thicker
-    // Define the thickness of the inner black border
-    const double innerBlackBorderThickness = 2.0; // Thin black border
+    const double outerWhiteBorderThickness = 25.0; //
 
     // Calculate total padding required for the image to fit within the borders
-    // This is the padding applied from the edge of the SizedBox to the clipped image.
-    final double totalPaddingForImage = outerWhiteBorderThickness + innerBlackBorderThickness;
+    final double totalPaddingForImage = outerWhiteBorderThickness;
 
 
     return Scaffold(
@@ -203,20 +200,17 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                 width: 200 + (totalPaddingForImage * 2), // Original image size + total padding
                 height: 200 + (totalPaddingForImage * 2), // Original image size + total padding
                 child: CustomPaint(
-                  // The painter draws the white outer border and the black inner border.
                   painter: PokedexDisplayPainter(
                     outerBorderColor: Colors.white,
                     outerBorderThickness: outerWhiteBorderThickness,
-                    innerBorderColor: Colors.black,
-                    innerBorderThickness: innerBlackBorderThickness,
+                    innerBorderColor: Colors.transparent, // Not used for border drawing
+                    innerBorderThickness: 0.0, // Not used for border drawing
                     cutBottomHorizontalOffset: cutBottomHorizontalOffset,
                     cutLeftVerticalOffset: cutLeftVerticalOffset,
                   ),
                   child: Padding(
-                    // This padding creates the space for the borders outside the clipped image.
                     padding: EdgeInsets.all(totalPaddingForImage),
                     child: ClipPath(
-                      // The clipper ensures the image itself is cut to the desired shape.
                       clipper: PokedexImageClipper(
                         cutBottomHorizontalOffset: cutBottomHorizontalOffset,
                         cutLeftVerticalOffset: cutLeftVerticalOffset,
@@ -280,8 +274,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 class PokedexDisplayPainter extends CustomPainter {
   final Color outerBorderColor;
   final double outerBorderThickness;
-  final Color innerBorderColor;
-  final double innerBorderThickness;
+  final Color innerBorderColor; // Not used for border drawing anymore
+  final double innerBorderThickness; // Not used for border drawing anymore
   final double cutBottomHorizontalOffset;
   final double cutLeftVerticalOffset;
 
@@ -294,11 +288,27 @@ class PokedexDisplayPainter extends CustomPainter {
     required this.cutLeftVerticalOffset,
   });
 
-  // Define constants for the dots
-  static const double dotRadius = 3.0; //
-  static const double dotVerticalPositionFactor = 0.15; // Relative position from the top
-  static const double leftDotHorizontalPositionFactor = 0.35; // Relative position from the left
-  static const double rightDotHorizontalPositionFactor = 0.65; // Relative position from the left
+  // Constants for the two red dots at the top
+  static const double topDotRadius = 3.0;
+  // Adjusted to fixed pixel offsets from the top edge for more precise placement
+  static const double topDotYOffset = 4.0; // Distance from the top outer edge
+  static const double topDotHorizontalSpacing = 10.0; // Half the spacing between the two dots
+
+  // Constants for the single red dot at the bottom-left
+  static const double bottomLeftDotRadius = 6.0;
+  // Adjusted to fixed pixel offsets relative to the cut corner for precise placement
+  static const double bottomLeftDotXOffsetFromLeft = 12.0; // Distance from the left outer edge
+  static const double bottomLeftDotYOffsetFromBottomCut = 12.0; // Distance from the bottom edge of the cut
+
+
+  // Constants for the three horizontal black lines
+  static const double lineThickness = 2.0; // Thickness of the line itself
+  static const double lineHeight = 2.0; // Height of each individual line (same as thickness for solid lines)
+  static const double lineWidth = 15.0; // Length of each line
+  static const double lineSpacing = 4.0; // Vertical space between lines
+  // Adjusted to fixed pixel offsets from the outer edges for precise placement
+  static const double linesRightOffsetFromOuterEdge = 20.0; // Distance from the right outer edge of the canvas
+  static const double linesBottomOffsetFromOuterEdge = -6.0; // Distance from the bottom outer edge of the canvas
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -318,44 +328,43 @@ class PokedexDisplayPainter extends CustomPainter {
 
     canvas.drawPath(outerPath, outerPaint);
 
-    // 2. Draw the inner (black) border
-    final innerPaint = Paint()
-      ..color = innerBorderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = innerBorderThickness;
-
-    // The precise offset for the inner border's path to sit flush.
-    // This value moves the *center* of the inner border's stroke
-    // to be exactly half its width away from the *inner edge* of the outer border's stroke.
-    final double offsetForInnerPath = (outerBorderThickness / 2) + (innerBorderThickness / 2); //
-
-    final innerBorderPath = Path();
-    innerBorderPath.moveTo(offsetForInnerPath, offsetForInnerPath); // Top-left
-    innerBorderPath.lineTo(size.width - offsetForInnerPath, offsetForInnerPath); // Top-right
-    innerBorderPath.lineTo(size.width - offsetForInnerPath, size.height - offsetForInnerPath); // Bottom-right
-
-    // Calculate the points for the inner border's angled cut, based on the original cut offsets
-    // and the new starting offset for the inner path.
-    final double innerBorderCutBottomX = cutBottomHorizontalOffset + offsetForInnerPath;
-    final double innerBorderCutLeftY = size.height - cutLeftVerticalOffset - offsetForInnerPath;
-
-    innerBorderPath.lineTo(innerBorderCutBottomX, size.height - offsetForInnerPath); // Bottom edge before cut
-    innerBorderPath.lineTo(offsetForInnerPath, innerBorderCutLeftY); // Left edge before cut
-    innerBorderPath.close();
-
-    canvas.drawPath(innerBorderPath, innerPaint);
-
-    // 3. Draw the two black dots
+    // 2. Draw the two red dots at the top
     final dotPaint = Paint()
-      ..color = Colors.black
+      ..color = Color.fromARGB(200, 204, 0, 0) //
       ..style = PaintingStyle.fill;
 
-    final double dotY = size.height * dotVerticalPositionFactor; //
-    final double leftDotX = size.width * leftDotHorizontalPositionFactor; //
-    final double rightDotX = size.width * rightDotHorizontalPositionFactor; //
+    // Calculate positions for top dots using fixed offsets
+    final double topDotY = topDotYOffset;
+    final double centerWidth = size.width / 2;
 
-    canvas.drawCircle(Offset(leftDotX, dotY), dotRadius, dotPaint); //
-    canvas.drawCircle(Offset(rightDotX, dotY), dotRadius, dotPaint); //
+    canvas.drawCircle(Offset(centerWidth - topDotHorizontalSpacing, topDotY), topDotRadius, dotPaint);
+    canvas.drawCircle(Offset(centerWidth + topDotHorizontalSpacing, topDotY), topDotRadius, dotPaint);
+
+    // 3. Draw the red dot at the bottom-left
+    // Position it using fixed offsets relative to the outer edges or cut
+    final double bottomLeftDotX = bottomLeftDotXOffsetFromLeft;
+    final double bottomLeftDotY = size.height - cutLeftVerticalOffset + (cutLeftVerticalOffset - bottomLeftDotYOffsetFromBottomCut);
+
+    canvas.drawCircle(Offset(bottomLeftDotX, bottomLeftDotY), bottomLeftDotRadius, dotPaint);
+
+    // 4. Draw the three horizontal black lines
+    final linePaint = Paint()
+      ..color = Colors.black //
+      ..style = PaintingStyle.fill; // Using fill for rectangles
+
+    // Calculate starting Y position for the bottom-most line.
+    // Use fixed offsets from the outer edges to place them within the border.
+    final double baseLineY = size.height - linesBottomOffsetFromOuterEdge - lineHeight;
+    final double baseLineX = size.width - linesRightOffsetFromOuterEdge - lineWidth;
+
+    for (int i = 0; i < 3; i++) {
+      // For each line, move it up by its height plus the spacing from the previous line.
+      final double currentLineY = baseLineY - (i * (lineHeight + lineSpacing));
+      canvas.drawRect(
+        Rect.fromLTWH(baseLineX, currentLineY, lineWidth, lineHeight),
+        linePaint,
+      );
+    }
   }
 
   @override
@@ -363,8 +372,6 @@ class PokedexDisplayPainter extends CustomPainter {
     if (oldDelegate is PokedexDisplayPainter) {
       return oldDelegate.outerBorderColor != outerBorderColor ||
           oldDelegate.outerBorderThickness != outerBorderThickness ||
-          oldDelegate.innerBorderColor != innerBorderColor ||
-          oldDelegate.innerBorderThickness != innerBorderThickness ||
           oldDelegate.cutBottomHorizontalOffset != cutBottomHorizontalOffset ||
           oldDelegate.cutLeftVerticalOffset != cutLeftVerticalOffset;
     }
