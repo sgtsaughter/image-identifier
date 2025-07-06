@@ -1,14 +1,21 @@
 // lib/services/scanned_pokemon_list_service.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // For jsonDecode and jsonEncode
+import 'dart:convert';
 
 import '../models/scanned_pokemon.dart';
+
 class ScannedPokemonListService extends ChangeNotifier {
   List<ScannedPokemon> _scannedPokemonList = [];
   static const String _keyScannedPokemon = 'scanned_pokemon_list';
 
   List<ScannedPokemon> get scannedPokemonList => _scannedPokemonList;
+
+  // New: Getter for the count of unique Pokémon
+  int get uniquePokemonCount {
+    final Set<String> uniqueNames = _scannedPokemonList.map((p) => p.name.toLowerCase()).toSet();
+    return uniqueNames.length;
+  }
 
   ScannedPokemonListService() {
     _loadScannedPokemon();
@@ -20,7 +27,7 @@ class ScannedPokemonListService extends ChangeNotifier {
     if (jsonString != null) {
       final List<dynamic> jsonList = jsonDecode(jsonString);
       _scannedPokemonList = jsonList.map((json) => ScannedPokemon.fromJson(json)).toList();
-      notifyListeners(); // Notify listeners after loading
+      notifyListeners();
     }
   }
 
@@ -32,10 +39,11 @@ class ScannedPokemonListService extends ChangeNotifier {
 
   void addPokemon(ScannedPokemon pokemon) {
     // Check if the Pokémon already exists by name to avoid duplicates
+    // We're still adding to the list, but uniquePokemonCount handles distinctness
     if (!_scannedPokemonList.any((p) => p.name.toLowerCase() == pokemon.name.toLowerCase())) {
-      _scannedPokemonList.add(pokemon);
-      _saveScannedPokemon(); // Save after adding
-      notifyListeners(); // Notify listeners that the list has changed
+      _scannedPokemonList.add(pokemon); // Add only if not already in the list
+      _saveScannedPokemon();
+      notifyListeners();
     }
   }
 

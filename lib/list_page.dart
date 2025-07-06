@@ -3,21 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/scanned_pokemon_list_service.dart';
 import '../models/scanned_pokemon.dart';
-// import '../main.dart'; // No longer need to import main.dart directly here for navigation
 
 class ListPage extends StatelessWidget {
   const ListPage({Key? key}) : super(key: key);
+
+  // Define the total number of Pokémon as a constant here
+  static const int _totalPokemonCount = 151;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scanned Pokémon'),
+        title: Consumer<ScannedPokemonListService>( // Use Consumer for the title
+          builder: (context, scannedPokemonListService, child) {
+            return Text(
+              'Scanned Pokémon: ${scannedPokemonListService.uniquePokemonCount}/$_totalPokemonCount',
+            );
+          },
+        ),
         backgroundColor: const Color(0xFFDB2E37),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.of(context).pop(); // Simply pop to go back to the previous screen
+            Navigator.of(context).pop();
           },
         ),
         actions: [
@@ -62,8 +70,6 @@ class ListPage extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
-                    // Pop the current route (ListPage) and pass the selected Pokemon back
-                    // as a result to the route that pushed it (ImageClassifierScreen).
                     Navigator.of(context).pop(pokemon);
                   },
                 ),
