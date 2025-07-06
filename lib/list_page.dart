@@ -28,41 +28,51 @@ class ListPage extends StatelessWidget {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_forever),
-            onPressed: () async { // Made onPressed async
-              final bool? confirm = await showDialog<bool>(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text('Clear All Scanned Pokémon?'),
-                    content: const Text(
-                        'Are you sure you want to delete all scanned Pokémon from the list? This action cannot be undone.'),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(false); // User cancelled, return false
-                        },
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(true); // User confirmed, return true
-                        },
-                        child: const Text('Delete All', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
+          Consumer<ScannedPokemonListService>(
+            builder: (context, scannedPokemonListService, child) {
+              // Conditionally render the IconButton
+              return scannedPokemonListService.scannedPokemonList.isEmpty
+                  ? const SizedBox.shrink() // If list is empty, show nothing
+                  : IconButton(
+                icon: const Icon(
+                  Icons.delete_forever,
+                  size: 30.0,
+                  color: Colors.white,
+                ),
+                onPressed: () async {
+                  final bool? confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Clear All Scanned Pokémon?'),
+                        content: const Text(
+                            'Are you sure you want to delete all scanned Pokémon from the list? This action cannot be undone.'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(false);
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(true);
+                            },
+                            child: const Text('Delete All', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      );
+                    },
                   );
+
+                  if (confirm == true) {
+                    Provider.of<ScannedPokemonListService>(context, listen: false).clearList();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Pokedex cleared!')),
+                    );
+                  }
                 },
               );
-
-              // If confirm is true, then clear the list
-              if (confirm == true) {
-                Provider.of<ScannedPokemonListService>(context, listen: false).clearList();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Scanned list cleared!')),
-                );
-              }
             },
           ),
         ],
