@@ -7,14 +7,13 @@ import '../models/scanned_pokemon.dart';
 class ListPage extends StatelessWidget {
   const ListPage({Key? key}) : super(key: key);
 
-  // Define the total number of Pokémon as a constant here
   static const int _totalPokemonCount = 151;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Consumer<ScannedPokemonListService>( // Use Consumer for the title
+        title: Consumer<ScannedPokemonListService>(
           builder: (context, scannedPokemonListService, child) {
             return Text(
               'Scanned Pokémon: ${scannedPokemonListService.uniquePokemonCount}/$_totalPokemonCount',
@@ -31,11 +30,39 @@ class ListPage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_forever),
-            onPressed: () {
-              Provider.of<ScannedPokemonListService>(context, listen: false).clearList();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Scanned list cleared!')),
+            onPressed: () async { // Made onPressed async
+              final bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Clear All Scanned Pokémon?'),
+                    content: const Text(
+                        'Are you sure you want to delete all scanned Pokémon from the list? This action cannot be undone.'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(false); // User cancelled, return false
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(true); // User confirmed, return true
+                        },
+                        child: const Text('Delete All', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  );
+                },
               );
+
+              // If confirm is true, then clear the list
+              if (confirm == true) {
+                Provider.of<ScannedPokemonListService>(context, listen: false).clearList();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Scanned list cleared!')),
+                );
+              }
             },
           ),
         ],
