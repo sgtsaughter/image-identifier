@@ -45,10 +45,11 @@ class ImageClassifierScreen extends StatefulWidget {
 }
 
 class _ImageClassifierScreenState extends State<ImageClassifierScreen> with SingleTickerProviderStateMixin {
-  File? _image; // This will now hold the image when loaded from disk or taken
+  File? _image;
   ClassificationResult? _classificationResult;
   bool _isClassifying = false;
   String _pokemonDescription = "";
+  bool _predictionAccepted = false; // New state variable to track acceptance
 
   late ImageClassificationService _imageClassifierService;
   late FlutterTts _flutterTts;
@@ -76,18 +77,16 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     _initializeServices();
   }
 
-  // Modified: _displayAndSpeakPokemon now handles image loading
   Future<void> _displayAndSpeakPokemon(ScannedPokemon pokemon) async {
     setState(() {
       _classificationResult = ClassificationResult(predictedName: pokemon.name, confidence: 1.0);
       _pokemonDescription = "${pokemon.name.toCapitalize()}, ${pokemon.description}";
       _isClassifying = false;
-
-      // New: Load the image from the stored path
+      _predictionAccepted = true; // When coming from list, it's already "accepted"
       if (pokemon.imagePath != null) {
         _image = File(pokemon.imagePath!);
       } else {
-        _image = null; // Clear image if no path is available
+        _image = null;
       }
     });
 
@@ -157,9 +156,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     final pickedFile = await ImagePicker().pickImage(source: source);
     if (pickedFile != null) {
       setState(() {
-        _image = File(pickedFile.path); // Set the image file
-        _classificationResult = null;
-        _pokemonDescription = "";
+        _image = File(pickedFile.path);
+        _classificationResult = null; // Clear previous result
+        _pokemonDescription = ""; // Clear previous description
+        _predictionAccepted = false; // Reset acceptance for new image
       });
       await _classifyImage();
     }
@@ -174,6 +174,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     setState(() {
       _isClassifying = true;
       _pokemonDescription = "Loading description...";
+      _predictionAccepted = false; // Ensure it's false when classifying
     });
 
     try {
@@ -186,12 +187,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
           _classificationResult = result;
           _pokemonDescription = "$predictedName, $fetchedDescription";
           _isClassifying = false;
+          // _predictionAccepted remains false, awaiting user input
         });
-
-        // Modified: Add imagePath when adding to the list service
-        Provider.of<ScannedPokemonListService>(context, listen: false).addPokemon(
-          ScannedPokemon(name: predictedName, description: fetchedDescription, imagePath: _image!.path),
-        );
 
         await _speak(predictedName);
         await _flutterTts.awaitSpeakCompletion(true);
@@ -203,6 +200,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
         setState(() {
           _isClassifying = false;
           _pokemonDescription = "Could not classify image.";
+          _predictionAccepted = false; // Still false if classification failed
         });
         _showSnackBar('Failed to classify image.');
       }
@@ -211,6 +209,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
       setState(() {
         _isClassifying = false;
         _pokemonDescription = "Error: ${e.toString()}";
+        _predictionAccepted = false; // Still false if error occurred
       });
       _showSnackBar('An error occurred during classification: $e');
     } finally {
@@ -218,6 +217,34 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
         _isClassifying = false;
       });
     }
+  }
+
+  // New: Accept the prediction and add to list
+  void _acceptPrediction() {
+    if (_classificationResult != null && _image != null && !_predictionAccepted) {
+      Provider.of<ScannedPokemonListService>(context, listen: false).addPokemon(
+        ScannedPokemon(
+          name: _classificationResult!.predictedName.toCapitalize(),
+          description: _pokemonDescription.substring(_classificationResult!.predictedName.length + 2), // Extract just description
+          imagePath: _image!.path,
+        ),
+      );
+      setState(() {
+        _predictionAccepted = true;
+      });
+      _showSnackBar('Pokemon added to Pokedex!');
+    }
+  }
+
+  // New: Decline the prediction
+  void _declinePrediction() {
+    setState(() {
+      _classificationResult = null; // Clear the prediction
+      _pokemonDescription = ""; // Clear description
+      _image = null; // Clear the image
+      _predictionAccepted = false; // Ensure it's false
+    });
+    _showSnackBar('Pokemon not added to Pokedex.');
   }
 
   void _handleViewList() async {
@@ -251,7 +278,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ImageDisplay now gets the image from _image
               ImageDisplay(
                 imageFile: _image,
                 cutBottomHorizontalOffset: _cutBottomHorizontalOffset,
@@ -264,6 +290,40 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
                 classificationResult: _classificationResult,
                 pokemonDescription: _pokemonDescription,
               ),
+              // New: Accept/Decline buttons
+              if (_classificationResult != null && !_isClassifying && !_predictionAccepted)
+                Padding(
+                  padding: const EdgeInsets.only(top: 20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _acceptPrediction,
+                        icon: const Icon(Icons.check, color: Colors.white),
+                        label: const Text('Accept', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green, // Accept button color
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _declinePrediction,
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        label: const Text('Decline', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent, // Decline button color
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
