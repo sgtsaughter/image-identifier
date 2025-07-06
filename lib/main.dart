@@ -3,21 +3,28 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-// Removed: import 'package:flutter/services.dart'; - it's not directly used here
+import 'package:provider/provider.dart';
 
 import 'string_extensions.dart';
 import 'pokemon_api.dart';
 import 'services/image_classification_service.dart';
+import 'services/scanned_pokemon_list_service.dart';
+import 'models/scanned_pokemon.dart';
 
 // Import the new UI widgets
 import 'widgets/pokedex_app_bar.dart';
 import 'widgets/image_display.dart';
 import 'widgets/prediction_info.dart';
 import 'widgets/action_buttons_footer.dart';
-import 'list_page.dart'; // Import the new ListPage
+import 'list_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ScannedPokemonListService(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -32,6 +39,8 @@ class MyApp extends StatelessWidget {
 }
 
 class ImageClassifierScreen extends StatefulWidget {
+  // We no longer need initialPokemon here because we'll pass it back via pop
+  // final ScannedPokemon? initialPokemon;
   const ImageClassifierScreen({Key? key}) : super(key: key);
 
   @override
@@ -50,13 +59,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
   late AnimationController _animationController;
   late Animation<double> _blinkingAnimation;
 
-  // Define cut properties and border thickness as constants (local to this class)
   static const double _cutBottomHorizontalOffset = 30.0;
   static const double _cutLeftVerticalOffset = 30.0;
   static const double _outerWhiteBorderThickness = 25.0;
-  // This _totalPaddingForImage is derived from _outerWhiteBorderThickness
   static const double _totalPaddingForImage = _outerWhiteBorderThickness;
-
 
   @override
   void initState() {
@@ -66,16 +72,45 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200), // Blinking speed (hardcoded)
+      duration: const Duration(milliseconds: 200),
     );
     _blinkingAnimation = Tween(begin: 0.0, end: 1.0).animate(_animationController);
 
     _initializeServices();
+
+    // Remove the initialPokemon check here as it's no longer passed directly
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   if (widget.initialPokemon != null) {
+    //     _displayAndSpeakPokemon(widget.initialPokemon!);
+    //   }
+    // });
   }
+
+  // This method remains the same
+  Future<void> _displayAndSpeakPokemon(ScannedPokemon pokemon) async {
+    setState(() {
+      _classificationResult = ClassificationResult(predictedName: pokemon.name, confidence: 1.0);
+      _pokemonDescription = "${pokemon.name.toCapitalize()}, ${pokemon.description}";
+      _isClassifying = false;
+    });
+
+    // Clear the image when displaying a pokemon from the list
+    setState(() {
+      _image = null;
+    });
+
+    await _speak(pokemon.name.toCapitalize());
+    await _flutterTts.awaitSpeakCompletion(true);
+    await Future.delayed(const Duration(milliseconds: 1000));
+    if (_pokemonDescription.length > pokemon.name.length + 2) {
+      await _speak(_pokemonDescription.substring(pokemon.name.length + 2));
+    }
+  }
+
 
   Future<void> _initializeServices() async {
     await _imageClassifierService.initialize();
-    await _initTts(); // Await TTS initialization for consistency
+    await _initTts();
   }
 
   @override
@@ -86,11 +121,11 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     super.dispose();
   }
 
-  Future<void> _initTts() async { // Made async for consistency
-    _flutterTts.setLanguage("en-US"); // Hardcoded
-    _flutterTts.setVolume(1.0);     // Hardcoded
-    _flutterTts.setPitch(.5);       // Hardcoded
-    _flutterTts.setSpeechRate(0.5); // Hardcoded
+  Future<void> _initTts() async {
+    _flutterTts.setLanguage("en-US");
+    _flutterTts.setVolume(1.0);
+    _flutterTts.setPitch(.5);
+    _flutterTts.setSpeechRate(0.5);
 
     _flutterTts.setStartHandler(() {
       setState(() {
@@ -132,10 +167,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
-        _classificationResult = null; // Clear previous result
-        _pokemonDescription = ""; // Clear previous description
+        _classificationResult = null;
+        _pokemonDescription = "";
       });
-      await _classifyImage(); // Await classification
+      await _classifyImage();
     }
   }
 
@@ -153,23 +188,24 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     try {
       final result = await _imageClassifierService.classifyImage(_image!);
       if (result != null) {
-        setState(() {
-          _classificationResult = result;
-        });
-
         String predictedName = result.predictedName.toCapitalize();
         String fetchedDescription = (await PokemonApi.getPokemonDescription(result.predictedName)) ?? "No description found.";
 
         setState(() {
+          _classificationResult = result;
           _pokemonDescription = "$predictedName, $fetchedDescription";
           _isClassifying = false;
         });
 
+        Provider.of<ScannedPokemonListService>(context, listen: false).addPokemon(
+          ScannedPokemon(name: predictedName, description: fetchedDescription),
+        );
+
         await _speak(predictedName);
         await _flutterTts.awaitSpeakCompletion(true);
-        await Future.delayed(const Duration(milliseconds: 1000)); // Hardcoded delay
+        await Future.delayed(const Duration(milliseconds: 1000));
         if (_pokemonDescription.length > predictedName.length + 2) {
-          await _speak(_pokemonDescription.substring(predictedName.length + 2)); // Speak description after name
+          await _speak(_pokemonDescription.substring(predictedName.length + 2));
         }
       } else {
         setState(() {
@@ -192,16 +228,20 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     }
   }
 
-  // New: Method to handle navigation to the ListPage
-  void _handleViewList() {
-    Navigator.of(context).push(
+  // Modified: _handleViewList now awaits a result from ListPage
+  void _handleViewList() async {
+    final ScannedPokemon? selectedPokemon = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const ListPage(),
       ),
     );
+
+    // If a Pokemon was selected from the list, display and speak its info
+    if (selectedPokemon != null) {
+      _displayAndSpeakPokemon(selectedPokemon);
+    }
   }
 
-  // Helper method for showing SnackBars
   void _showSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -213,21 +253,21 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFDB2E37), // Hardcoded Pokedex Red
+      backgroundColor: const Color(0xFFDB2E37),
       appBar: PokedexAppBar(blinkingAnimation: _blinkingAnimation),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0), // Hardcoded padding
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               ImageDisplay(
-                imageFile: _image,
-                cutBottomHorizontalOffset: _cutBottomHorizontalOffset, // Passed local constant
-                cutLeftVerticalOffset: _cutLeftVerticalOffset,       // Passed local constant
-                outerWhiteBorderThickness: _outerWhiteBorderThickness, // Passed local constant
+                imageFile: _image, // This will be null if coming from list click
+                cutBottomHorizontalOffset: _cutBottomHorizontalOffset,
+                cutLeftVerticalOffset: _cutLeftVerticalOffset,
+                outerWhiteBorderThickness: _outerWhiteBorderThickness,
               ),
-              const SizedBox(height: 20), // Hardcoded spacing
+              const SizedBox(height: 20),
               PredictionInfo(
                 isClassifying: _isClassifying,
                 classificationResult: _classificationResult,
@@ -239,7 +279,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
       ),
       bottomNavigationBar: ActionButtonsFooter(
         onPickImage: _handleImageSelection,
-        onViewList: _handleViewList, // Pass the new handler
+        onViewList: _handleViewList,
       ),
     );
   }
