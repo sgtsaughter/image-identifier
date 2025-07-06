@@ -287,7 +287,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
                 cutLeftVerticalOffset: _cutLeftVerticalOffset,
                 outerWhiteBorderThickness: _outerWhiteBorderThickness,
               ),
-              const SizedBox(height: 30), // Increased space here
+              const SizedBox(height: 30),
               PredictionWidgets.PredictionInfo(
                 isClassifying: _isClassifying,
                 classificationResult: _classificationResult,
