@@ -28,7 +28,7 @@ class ImageClassifierScreen extends StatefulWidget {
   _ImageClassifierScreenState createState() => _ImageClassifierScreenState();
 }
 
-class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
+class _ImageClassifierScreenState extends State<ImageClassifierScreen> with SingleTickerProviderStateMixin {
   File? _image;
   List<double>? _output;
   double _confidence = 0.0;
@@ -38,11 +38,32 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
   String _pokemonDescription = "";
   FlutterTts flutterTts = FlutterTts();
 
+  // For the blinking effect
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+  bool _isSpeaking = false; // To control if the light should blink
+
   @override
   void initState() {
     super.initState();
+    // Initialize animation controller, but DON'T start it yet.
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200), // Blinking speed
+    );
+
+    // Initialize the animation value, which will be driven by the controller
+    _animation = Tween(begin: 0.0, end: 1.0).animate(_animationController);
+
     initTts();
     loadClassNames();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose(); // Dispose the controller to prevent memory leaks
+    flutterTts.stop(); // Stop TTS if it's speaking
+    super.dispose();
   }
 
   initTts() async {
@@ -50,6 +71,39 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
     await flutterTts.setVolume(1.0);
     await flutterTts.setPitch(.5);
     await flutterTts.setSpeechRate(0.5);
+
+    // Set up TTS handlers
+    flutterTts.setStartHandler(() {
+      setState(() {
+        _isSpeaking = true;
+        _animationController.repeat(reverse: true); // Start blinking when speech begins
+      });
+    });
+
+    flutterTts.setCompletionHandler(() {
+      setState(() {
+        _isSpeaking = false;
+        _animationController.stop(); // Stop blinking
+        _animationController.value = 0.0; // Reset opacity to off state (fully transparent)
+      });
+    });
+
+    flutterTts.setCancelHandler(() {
+      setState(() {
+        _isSpeaking = false;
+        _animationController.stop(); // Stop blinking
+        _animationController.value = 0.0; // Reset opacity to off state
+      });
+    });
+
+    flutterTts.setErrorHandler((message) {
+      setState(() {
+        _isSpeaking = false;
+        _animationController.stop();
+        _animationController.value = 0.0;
+        print("TTS Error: $message");
+      });
+    });
   }
 
   Future _speak(String text) async {
@@ -146,10 +200,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
         _isClassifying = false;
       });
 
-      await flutterTts.speak(_predictedName.toCapitalize());
+      await _speak(_predictedName.toCapitalize());
       await flutterTts.awaitSpeakCompletion(true);
       await Future.delayed(Duration(milliseconds: 1000));
-      await flutterTts.speak(_pokemonDescription.substring(_predictedName.length + 2));
+      await _speak(_pokemonDescription.substring(_predictedName.length + 2));
     } catch (e) {
       print('Error during classification: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -169,11 +223,10 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
     const double cutLeftVerticalOffset = 30.0;
 
     // Define the thickness of the outer white border
-    const double outerWhiteBorderThickness = 25.0; //
+    const double outerWhiteBorderThickness = 25.0;
 
     // Calculate total padding required for the image to fit within the borders
     final double totalPaddingForImage = outerWhiteBorderThickness;
-
 
     return Scaffold(
       backgroundColor: Color(0xFFDB2E37),
@@ -182,10 +235,29 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
         backgroundColor: Color(0xFFDB2E37),
         title: null, // Remove the title
         flexibleSpace: SafeArea(
-          child: SvgPicture.asset(
-            "assets/pokedex-header.svg",
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+          child: Stack(
+            children: [
+              SvgPicture.asset(
+                "assets/pokedex-header.svg",
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
+              Positioned(
+                top: 20,
+                left: 16,
+                child: FadeTransition(
+                  opacity: _animation,
+                  child: Container(
+                    width: 75,
+                    height: 75,
+                    decoration: BoxDecoration(
+                      color: Colors.cyanAccent.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -197,14 +269,14 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
             children: [
               _image != null
                   ? SizedBox(
-                width: 200 + (totalPaddingForImage * 2), // Original image size + total padding
-                height: 200 + (totalPaddingForImage * 2), // Original image size + total padding
+                width: 200 + (totalPaddingForImage * 2),
+                height: 200 + (totalPaddingForImage * 2),
                 child: CustomPaint(
                   painter: PokedexDisplayPainter(
                     outerBorderColor: Colors.white,
                     outerBorderThickness: outerWhiteBorderThickness,
-                    innerBorderColor: Colors.transparent, // Not used for border drawing
-                    innerBorderThickness: 0.0, // Not used for border drawing
+                    innerBorderColor: Colors.transparent,
+                    innerBorderThickness: 0.0,
                     cutBottomHorizontalOffset: cutBottomHorizontalOffset,
                     cutLeftVerticalOffset: cutLeftVerticalOffset,
                   ),
@@ -217,8 +289,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
                       ),
                       child: Image.file(
                         _image!,
-                        height: 200, // The actual display height of the image within the clip
-                        width: 200,  // The actual display width of the image within the clip
+                        height: 200,
+                        width: 200,
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -274,8 +346,8 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> {
 class PokedexDisplayPainter extends CustomPainter {
   final Color outerBorderColor;
   final double outerBorderThickness;
-  final Color innerBorderColor; // Not used for border drawing anymore
-  final double innerBorderThickness; // Not used for border drawing anymore
+  final Color innerBorderColor;
+  final double innerBorderThickness;
   final double cutBottomHorizontalOffset;
   final double cutLeftVerticalOffset;
 
@@ -288,17 +360,13 @@ class PokedexDisplayPainter extends CustomPainter {
     required this.cutLeftVerticalOffset,
   });
 
-  // Constants for the two red dots at the top
   static const double topDotRadius = 3.0;
-  // Adjusted to fixed pixel offsets from the top edge for more precise placement
-  static const double topDotYOffset = 4.0; // Distance from the top outer edge
-  static const double topDotHorizontalSpacing = 10.0; // Half the spacing between the two dots
+  static const double topDotYOffset = 4.0;
+  static const double topDotHorizontalSpacing = 10.0;
 
-  // Constants for the single red dot at the bottom-left
   static const double bottomLeftDotRadius = 6.0;
-  // Adjusted to fixed pixel offsets relative to the cut corner for precise placement
-  static const double bottomLeftDotXOffsetFromLeft = 12.0; // Distance from the left outer edge
-  static const double bottomLeftDotYOffsetFromBottomCut = 12.0; // Distance from the bottom edge of the cut
+  static const double bottomLeftDotXOffsetFromLeft = 12.0;
+  static const double bottomLeftDotYOffsetFromBottomCut = 12.0;
 
 
   // Constants for the three horizontal black lines
@@ -312,53 +380,44 @@ class PokedexDisplayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Draw the outer (white) border
     final outerPaint = Paint()
       ..color = outerBorderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = outerBorderThickness;
 
     final outerPath = Path();
-    outerPath.moveTo(0, 0); // Top-left
-    outerPath.lineTo(size.width, 0); // Top-right
-    outerPath.lineTo(size.width, size.height); // Bottom-right
-    outerPath.lineTo(cutBottomHorizontalOffset, size.height); // Bottom edge before the cut
-    outerPath.lineTo(0, size.height - cutLeftVerticalOffset); // Left edge before the cut
+    outerPath.moveTo(0, 0);
+    outerPath.lineTo(size.width, 0);
+    outerPath.lineTo(size.width, size.height);
+    outerPath.lineTo(cutBottomHorizontalOffset, size.height);
+    outerPath.lineTo(0, size.height - cutLeftVerticalOffset);
     outerPath.close();
 
     canvas.drawPath(outerPath, outerPaint);
 
-    // 2. Draw the two red dots at the top
     final dotPaint = Paint()
-      ..color = Color.fromARGB(200, 204, 0, 0) //
+      ..color = const Color(0xFFD32F2F)
       ..style = PaintingStyle.fill;
 
-    // Calculate positions for top dots using fixed offsets
     final double topDotY = topDotYOffset;
     final double centerWidth = size.width / 2;
 
     canvas.drawCircle(Offset(centerWidth - topDotHorizontalSpacing, topDotY), topDotRadius, dotPaint);
     canvas.drawCircle(Offset(centerWidth + topDotHorizontalSpacing, topDotY), topDotRadius, dotPaint);
 
-    // 3. Draw the red dot at the bottom-left
-    // Position it using fixed offsets relative to the outer edges or cut
     final double bottomLeftDotX = bottomLeftDotXOffsetFromLeft;
     final double bottomLeftDotY = size.height - cutLeftVerticalOffset + (cutLeftVerticalOffset - bottomLeftDotYOffsetFromBottomCut);
 
     canvas.drawCircle(Offset(bottomLeftDotX, bottomLeftDotY), bottomLeftDotRadius, dotPaint);
 
-    // 4. Draw the three horizontal black lines
     final linePaint = Paint()
-      ..color = Colors.black //
-      ..style = PaintingStyle.fill; // Using fill for rectangles
+      ..color = Colors.black
+      ..style = PaintingStyle.fill;
 
-    // Calculate starting Y position for the bottom-most line.
-    // Use fixed offsets from the outer edges to place them within the border.
     final double baseLineY = size.height - linesBottomOffsetFromOuterEdge - lineHeight;
     final double baseLineX = size.width - linesRightOffsetFromOuterEdge - lineWidth;
 
     for (int i = 0; i < 3; i++) {
-      // For each line, move it up by its height plus the spacing from the previous line.
       final double currentLineY = baseLineY - (i * (lineHeight + lineSpacing));
       canvas.drawRect(
         Rect.fromLTWH(baseLineX, currentLineY, lineWidth, lineHeight),
@@ -379,7 +438,6 @@ class PokedexDisplayPainter extends CustomPainter {
   }
 }
 
-// Custom Clipper Class for the Image
 class PokedexImageClipper extends CustomClipper<Path> {
   final double cutBottomHorizontalOffset;
   final double cutLeftVerticalOffset;
@@ -392,12 +450,11 @@ class PokedexImageClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
-    path.moveTo(0, 0); // Top-left
-    path.lineTo(size.width, 0); // Top-right
-    path.lineTo(size.width, size.height); // Bottom-right
-
-    path.lineTo(cutBottomHorizontalOffset, size.height); // Bottom edge before the cut
-    path.lineTo(0, size.height - cutLeftVerticalOffset); // Left edge before the cut
+    path.moveTo(0, 0);
+    path.lineTo(size.width, 0);
+    path.lineTo(size.width, size.height);
+    path.lineTo(cutBottomHorizontalOffset, size.height);
+    path.lineTo(0, size.height - cutLeftVerticalOffset);
     path.close();
     return path;
   }
