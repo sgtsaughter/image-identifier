@@ -11,7 +11,6 @@ class ScannedPokemonListService extends ChangeNotifier {
 
   List<ScannedPokemon> get scannedPokemonList => _scannedPokemonList;
 
-  // New: Getter for the count of unique Pokémon
   int get uniquePokemonCount {
     final Set<String> uniqueNames = _scannedPokemonList.map((p) => p.name.toLowerCase()).toSet();
     return uniqueNames.length;
@@ -26,7 +25,6 @@ class ScannedPokemonListService extends ChangeNotifier {
     final String? jsonString = prefs.getString(_keyScannedPokemon);
     if (jsonString != null) {
       final List<dynamic> jsonList = jsonDecode(jsonString);
-      // Changed from ScannedPokemon.fromJson to ScannedPokemon.fromMap
       _scannedPokemonList = jsonList.map((json) => ScannedPokemon.fromMap(json)).toList();
       notifyListeners();
     }
@@ -34,19 +32,32 @@ class ScannedPokemonListService extends ChangeNotifier {
 
   Future<void> _saveScannedPokemon() async {
     final prefs = await SharedPreferences.getInstance();
-    // Changed from pokemon.toJson() to pokemon.toMap()
     final List<Map<String, dynamic>> jsonList = _scannedPokemonList.map((pokemon) => pokemon.toMap()).toList();
     await prefs.setString(_keyScannedPokemon, jsonEncode(jsonList));
   }
 
   void addPokemon(ScannedPokemon pokemon) {
-    // Check if the Pokémon already exists by name to avoid duplicates
-    // We're still adding to the list, but uniquePokemonCount handles distinctness
-    if (!_scannedPokemonList.any((p) => p.name.toLowerCase() == pokemon.name.toLowerCase())) {
-      _scannedPokemonList.add(pokemon); // Add only if not already in the list
-      _saveScannedPokemon();
-      notifyListeners();
+    // Convert new pokemon name to lowercase for case-insensitive comparison
+    final String newPokemonNameLower = pokemon.name.toLowerCase();
+    bool foundAndUpdated = false;
+
+    // Iterate through the list to find if the Pokémon already exists
+    for (int i = 0; i < _scannedPokemonList.length; i++) {
+      if (_scannedPokemonList[i].name.toLowerCase() == newPokemonNameLower) {
+        // If found, replace the old entry with the new one
+        _scannedPokemonList[i] = pokemon;
+        foundAndUpdated = true;
+        break; // Exit loop once updated
+      }
     }
+
+    // If not found (or updated), add the new Pokémon
+    if (!foundAndUpdated) {
+      _scannedPokemonList.add(pokemon);
+    }
+
+    _saveScannedPokemon(); // Save changes whether added or updated
+    notifyListeners(); // Notify listeners of the change
   }
 
   void clearList() {
