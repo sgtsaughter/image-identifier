@@ -11,7 +11,6 @@ import 'services/image_classification_service.dart';
 import 'services/scanned_pokemon_list_service.dart';
 import 'models/scanned_pokemon.dart';
 
-// Import the new UI widgets
 import 'widgets/pokedex_app_bar.dart';
 import 'widgets/image_display.dart';
 import 'widgets/prediction_info.dart';
@@ -39,8 +38,6 @@ class MyApp extends StatelessWidget {
 }
 
 class ImageClassifierScreen extends StatefulWidget {
-  // We no longer need initialPokemon here because we'll pass it back via pop
-  // final ScannedPokemon? initialPokemon;
   const ImageClassifierScreen({Key? key}) : super(key: key);
 
   @override
@@ -48,7 +45,7 @@ class ImageClassifierScreen extends StatefulWidget {
 }
 
 class _ImageClassifierScreenState extends State<ImageClassifierScreen> with SingleTickerProviderStateMixin {
-  File? _image;
+  File? _image; // This will now hold the image when loaded from disk or taken
   ClassificationResult? _classificationResult;
   bool _isClassifying = false;
   String _pokemonDescription = "";
@@ -77,26 +74,21 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     _blinkingAnimation = Tween(begin: 0.0, end: 1.0).animate(_animationController);
 
     _initializeServices();
-
-    // Remove the initialPokemon check here as it's no longer passed directly
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   if (widget.initialPokemon != null) {
-    //     _displayAndSpeakPokemon(widget.initialPokemon!);
-    //   }
-    // });
   }
 
-  // This method remains the same
+  // Modified: _displayAndSpeakPokemon now handles image loading
   Future<void> _displayAndSpeakPokemon(ScannedPokemon pokemon) async {
     setState(() {
       _classificationResult = ClassificationResult(predictedName: pokemon.name, confidence: 1.0);
       _pokemonDescription = "${pokemon.name.toCapitalize()}, ${pokemon.description}";
       _isClassifying = false;
-    });
 
-    // Clear the image when displaying a pokemon from the list
-    setState(() {
-      _image = null;
+      // New: Load the image from the stored path
+      if (pokemon.imagePath != null) {
+        _image = File(pokemon.imagePath!);
+      } else {
+        _image = null; // Clear image if no path is available
+      }
     });
 
     await _speak(pokemon.name.toCapitalize());
@@ -106,7 +98,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
       await _speak(_pokemonDescription.substring(pokemon.name.length + 2));
     }
   }
-
 
   Future<void> _initializeServices() async {
     await _imageClassifierService.initialize();
@@ -166,7 +157,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     final pickedFile = await ImagePicker().pickImage(source: source);
     if (pickedFile != null) {
       setState(() {
-        _image = File(pickedFile.path);
+        _image = File(pickedFile.path); // Set the image file
         _classificationResult = null;
         _pokemonDescription = "";
       });
@@ -197,8 +188,9 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
           _isClassifying = false;
         });
 
+        // Modified: Add imagePath when adding to the list service
         Provider.of<ScannedPokemonListService>(context, listen: false).addPokemon(
-          ScannedPokemon(name: predictedName, description: fetchedDescription),
+          ScannedPokemon(name: predictedName, description: fetchedDescription, imagePath: _image!.path),
         );
 
         await _speak(predictedName);
@@ -228,7 +220,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     }
   }
 
-  // Modified: _handleViewList now awaits a result from ListPage
   void _handleViewList() async {
     final ScannedPokemon? selectedPokemon = await Navigator.of(context).push(
       MaterialPageRoute(
@@ -236,7 +227,6 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
       ),
     );
 
-    // If a Pokemon was selected from the list, display and speak its info
     if (selectedPokemon != null) {
       _displayAndSpeakPokemon(selectedPokemon);
     }
@@ -261,8 +251,9 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // ImageDisplay now gets the image from _image
               ImageDisplay(
-                imageFile: _image, // This will be null if coming from list click
+                imageFile: _image,
                 cutBottomHorizontalOffset: _cutBottomHorizontalOffset,
                 cutLeftVerticalOffset: _cutLeftVerticalOffset,
                 outerWhiteBorderThickness: _outerWhiteBorderThickness,
