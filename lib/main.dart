@@ -79,7 +79,11 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
 
   Future<void> _displayAndSpeakPokemon(ScannedPokemon pokemon) async {
     setState(() {
-      _classificationResult = ClassificationResult(predictedName: pokemon.name, confidence: 1.0);
+      // Use the actual confidence from the ScannedPokemon object
+      _classificationResult = ClassificationResult(
+        predictedName: pokemon.name,
+        confidence: pokemon.confidence, // Use stored confidence
+      );
       _pokemonDescription = "${pokemon.name.toCapitalize()}, ${pokemon.description}";
       _isClassifying = false;
       _predictionAccepted = true;
@@ -231,6 +235,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
           name: _classificationResult!.predictedName.toCapitalize(),
           description: descriptionOnly,
           imagePath: _image!.path,
+          confidence: _classificationResult!.confidence, // Pass the actual confidence
         ),
       );
       setState(() {

@@ -26,14 +26,16 @@ class ScannedPokemonListService extends ChangeNotifier {
     final String? jsonString = prefs.getString(_keyScannedPokemon);
     if (jsonString != null) {
       final List<dynamic> jsonList = jsonDecode(jsonString);
-      _scannedPokemonList = jsonList.map((json) => ScannedPokemon.fromJson(json)).toList();
+      // Changed from ScannedPokemon.fromJson to ScannedPokemon.fromMap
+      _scannedPokemonList = jsonList.map((json) => ScannedPokemon.fromMap(json)).toList();
       notifyListeners();
     }
   }
 
   Future<void> _saveScannedPokemon() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<Map<String, dynamic>> jsonList = _scannedPokemonList.map((pokemon) => pokemon.toJson()).toList();
+    // Changed from pokemon.toJson() to pokemon.toMap()
+    final List<Map<String, dynamic>> jsonList = _scannedPokemonList.map((pokemon) => pokemon.toMap()).toList();
     await prefs.setString(_keyScannedPokemon, jsonEncode(jsonList));
   }
 

@@ -1,31 +1,34 @@
 // lib/models/scanned_pokemon.dart
-import 'dart:convert';
-
 class ScannedPokemon {
   final String name;
   final String description;
-  final String? imagePath; // New: Optional path to the locally stored image
+  final String? imagePath; // Nullable as it might not always have an image
+  final double confidence; // Add confidence field
 
   ScannedPokemon({
     required this.name,
     required this.description,
-    this.imagePath, // Make it optional
+    this.imagePath,
+    required this.confidence, // Make it required
   });
 
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'description': description,
-    'imagePath': imagePath, // Include imagePath in JSON
-  };
-
-  factory ScannedPokemon.fromJson(Map<String, dynamic> json) {
-    return ScannedPokemon(
-      name: json['name'] as String,
-      description: json['description'] as String,
-      imagePath: json['imagePath'] as String?, // Retrieve imagePath from JSON
-    );
+  // Convert ScannedPokemon to a Map (for potential future persistence)
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'description': description,
+      'imagePath': imagePath,
+      'confidence': confidence,
+    };
   }
 
-  @override
-  String toString() => 'ScannedPokemon(name: $name, description: $description, imagePath: $imagePath)';
+  // Create ScannedPokemon from a Map
+  factory ScannedPokemon.fromMap(Map<String, dynamic> map) {
+    return ScannedPokemon(
+      name: map['name'] as String,
+      description: map['description'] as String,
+      imagePath: map['imagePath'] as String?,
+      confidence: map['confidence'] as double, // Retrieve confidence
+    );
+  }
 }
