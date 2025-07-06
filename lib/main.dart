@@ -5,10 +5,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
-import 'pokemon_api.dart'; // Assuming this file exists
-import 'package:flutter_tts/flutter_tts.dart'; // Assuming this package is in pubspec.yaml
-import 'string_extensions.dart'; // Assuming this file exists
-import 'package:flutter_svg/flutter_svg.dart'; // Assuming this package is in pubspec.yaml
+import 'pokemon_api.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'string_extensions.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   runApp(MyApp());
