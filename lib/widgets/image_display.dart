@@ -49,7 +49,7 @@ class ImageDisplay extends StatelessWidget {
         ),
       ),
     )
-        : const Text('No image selected');
+        : const Text('');
   }
 }
 
