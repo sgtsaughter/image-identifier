@@ -1,17 +1,20 @@
+// lib/main.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/services.dart';
-import 'pokemon_api.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+// Removed: import 'package:flutter/services.dart'; - it's not directly used here
 
 import 'string_extensions.dart';
+import 'pokemon_api.dart';
 import 'services/image_classification_service.dart';
 
+// Import the new UI widgets
 import 'widgets/pokedex_app_bar.dart';
 import 'widgets/image_display.dart';
 import 'widgets/prediction_info.dart';
 import 'widgets/action_buttons_footer.dart';
+import 'list_page.dart'; // Import the new ListPage
 
 void main() {
   runApp(const MyApp());
@@ -46,12 +49,12 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
 
   late AnimationController _animationController;
   late Animation<double> _blinkingAnimation;
-  // bool _isSpeaking is managed internally by _initTts handlers now for the animation
 
-  // Define cut properties and border thickness as constants
+  // Define cut properties and border thickness as constants (local to this class)
   static const double _cutBottomHorizontalOffset = 30.0;
   static const double _cutLeftVerticalOffset = 30.0;
   static const double _outerWhiteBorderThickness = 25.0;
+  // This _totalPaddingForImage is derived from _outerWhiteBorderThickness
   static const double _totalPaddingForImage = _outerWhiteBorderThickness;
 
 
@@ -63,7 +66,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200), // Blinking speed
+      duration: const Duration(milliseconds: 200), // Blinking speed (hardcoded)
     );
     _blinkingAnimation = Tween(begin: 0.0, end: 1.0).animate(_animationController);
 
@@ -72,7 +75,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
 
   Future<void> _initializeServices() async {
     await _imageClassifierService.initialize();
-    _initTts();
+    await _initTts(); // Await TTS initialization for consistency
   }
 
   @override
@@ -83,29 +86,29 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     super.dispose();
   }
 
-  void _initTts() {
-    _flutterTts.setLanguage("en-US");
-    _flutterTts.setVolume(1.0);
-    _flutterTts.setPitch(.5);
-    _flutterTts.setSpeechRate(0.5);
+  Future<void> _initTts() async { // Made async for consistency
+    _flutterTts.setLanguage("en-US"); // Hardcoded
+    _flutterTts.setVolume(1.0);     // Hardcoded
+    _flutterTts.setPitch(.5);       // Hardcoded
+    _flutterTts.setSpeechRate(0.5); // Hardcoded
 
     _flutterTts.setStartHandler(() {
       setState(() {
-        _animationController.repeat(reverse: true); // Start blinking when speech begins
+        _animationController.repeat(reverse: true);
       });
     });
 
     _flutterTts.setCompletionHandler(() {
       setState(() {
-        _animationController.stop(); // Stop blinking
-        _animationController.value = 0.0; // Reset opacity to off state (fully transparent)
+        _animationController.stop();
+        _animationController.value = 0.0;
       });
     });
 
     _flutterTts.setCancelHandler(() {
       setState(() {
-        _animationController.stop(); // Stop blinking
-        _animationController.value = 0.0; // Reset opacity to off state
+        _animationController.stop();
+        _animationController.value = 0.0;
       });
     });
 
@@ -132,15 +135,13 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
         _classificationResult = null; // Clear previous result
         _pokemonDescription = ""; // Clear previous description
       });
-      _classifyImage();
+      await _classifyImage(); // Await classification
     }
   }
 
   Future<void> _classifyImage() async {
     if (_image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an image.')),
-      );
+      _showSnackBar('Please select an image.');
       return;
     }
 
@@ -157,16 +158,16 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
         });
 
         String predictedName = result.predictedName.toCapitalize();
-        _pokemonDescription = (await PokemonApi.getPokemonDescription(result.predictedName)) ?? "No description found.";
+        String fetchedDescription = (await PokemonApi.getPokemonDescription(result.predictedName)) ?? "No description found.";
 
         setState(() {
-          _pokemonDescription = "$predictedName, $_pokemonDescription";
+          _pokemonDescription = "$predictedName, $fetchedDescription";
           _isClassifying = false;
         });
 
         await _speak(predictedName);
         await _flutterTts.awaitSpeakCompletion(true);
-        await Future.delayed(const Duration(milliseconds: 1000));
+        await Future.delayed(const Duration(milliseconds: 1000)); // Hardcoded delay
         if (_pokemonDescription.length > predictedName.length + 2) {
           await _speak(_pokemonDescription.substring(predictedName.length + 2)); // Speak description after name
         }
@@ -175,11 +176,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
           _isClassifying = false;
           _pokemonDescription = "Could not classify image.";
         });
-        if (mounted) { // Check if the widget is still mounted before showing SnackBar
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to classify image.')),
-          );
-        }
+        _showSnackBar('Failed to classify image.');
       }
     } catch (e) {
       print('Error during classification: $e');
@@ -187,11 +184,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
         _isClassifying = false;
         _pokemonDescription = "Error: ${e.toString()}";
       });
-      if (mounted) { // Check if the widget is still mounted before showing SnackBar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred during classification: $e')),
-        );
-      }
+      _showSnackBar('An error occurred during classification: $e');
     } finally {
       setState(() {
         _isClassifying = false;
@@ -199,24 +192,42 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
     }
   }
 
+  // New: Method to handle navigation to the ListPage
+  void _handleViewList() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ListPage(),
+      ),
+    );
+  }
+
+  // Helper method for showing SnackBars
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFDB2E37),
+      backgroundColor: const Color(0xFFDB2E37), // Hardcoded Pokedex Red
       appBar: PokedexAppBar(blinkingAnimation: _blinkingAnimation),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16.0), // Hardcoded padding
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               ImageDisplay(
                 imageFile: _image,
-                cutBottomHorizontalOffset: _cutBottomHorizontalOffset,
-                cutLeftVerticalOffset: _cutLeftVerticalOffset,
-                outerWhiteBorderThickness: _outerWhiteBorderThickness,
+                cutBottomHorizontalOffset: _cutBottomHorizontalOffset, // Passed local constant
+                cutLeftVerticalOffset: _cutLeftVerticalOffset,       // Passed local constant
+                outerWhiteBorderThickness: _outerWhiteBorderThickness, // Passed local constant
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 20), // Hardcoded spacing
               PredictionInfo(
                 isClassifying: _isClassifying,
                 classificationResult: _classificationResult,
@@ -228,6 +239,7 @@ class _ImageClassifierScreenState extends State<ImageClassifierScreen> with Sing
       ),
       bottomNavigationBar: ActionButtonsFooter(
         onPickImage: _handleImageSelection,
+        onViewList: _handleViewList, // Pass the new handler
       ),
     );
   }
